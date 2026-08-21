@@ -14,8 +14,10 @@ CRYPTOBOT_API_URL = "https://pay.crypt.bot/api/"
 ADMIN_IDS = [7015434265, 7947689141]
 
 # ========== РЕКВИЗИТЫ ДЛЯ ОПЛАТЫ ==========
-CARD_NUMBER = "4100 1195 9945 9420"
-SBP_PHONE = "+7 995 141 82 98"
+CARD_NUMBER = "2200 7021 2493 1242"
+SBP_PHONE = "+7 961 679 94 37"
+BANK_NAME = "Т-Банк"
+RECEIVER_NAME = "Алексей Т."
 
 # ========== ОСТАЛЬНЫЕ ПЕРЕМЕННЫЕ ==========
 user_cities = {}
@@ -219,33 +221,6 @@ async def forward_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE, m
 
     except Exception as e:
         print(f"Ошибка при пересылке в группу: {e}")
-
-
-async def send_qr_to_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Команда /sendqr - отправка QR-кода из файла пользователю (только для админов)"""
-    user_id = update.effective_user.id
-    if user_id not in ADMIN_IDS:
-        await update.message.reply_text("⛔ У вас нет прав для этой команды.")
-        return
-
-    try:
-        args = context.args
-        target_id = int(args[0])
-        
-        QR_FILE = "sbp_qr.jpg"
-        
-        try:
-            with open(QR_FILE, 'rb') as qr_photo:
-                await context.bot.send_photo(
-                    chat_id=target_id,
-                    photo=InputFile(qr_photo),
-                    caption="✅ Ваш QR-код для оплаты готов."
-                )
-            await update.message.reply_text(f"✅ QR-код отправлен пользователю {target_id}")
-        except FileNotFoundError:
-            await update.message.reply_text(f"❌ Файл {QR_FILE} не найден. Положите его в папку с ботом.")
-    except Exception as e:
-        await update.message.reply_text(f"❌ Ошибка: {e}")
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -705,8 +680,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.edit_text(
             f"💳 Пополнение по карте:\n\n"
             f"Номер карты: {CARD_NUMBER}\n"
-            f"Банк: ЮMoney\n"
-            f"Получатель: Анна Мухометова.\n\n"
+            f"Банк: {BANK_NAME}\n"
+            f"Получатель: {RECEIVER_NAME}\n\n"
             f"После перевода отправьте чек в бота."
         )
         return
@@ -715,17 +690,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.edit_text(
             f"📱 Пополнение по СБП:\n\n"
             f"Номер телефона: {SBP_PHONE}\n"
-            f"Банк: ЮMoney\n"
-            f"Получатель: Анна М.\n\n"
+            f"Банк: {BANK_NAME}\n"
+            f"Получатель: {RECEIVER_NAME}\n\n"
             f"После перевода отправьте чек в бота."
         )
         return
 
     elif query.data == "pay_qr":
         await query.message.edit_text(
-            "📲 Вы выбрали оплату по QR-коду.\n\n"
-            "Я сгенерирую QR-код в ближайшее время и отправлю его вам в этот чат.\n"
-            "Пожалуйста, ожидайте."
+            "📲 Для оплаты по QR-коду обратитесь в нашу техподдержку:\n\n"
+            "👉 @John_TexSupport\n\n"
+            "Они сгенерируют QR-код и отправят его вам в личные сообщения."
         )
         return
 
@@ -972,9 +947,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 💰 Сумма к оплате: {final_price}₽
 
 📱 Реквизиты СБП:
-+79951418298
-ЮMoney
-Получатель: Анна М.
+{SBP_PHONE}
+Банк: {BANK_NAME}
+Получатель: {RECEIVER_NAME}
 
 ⚠️ Внимание: оплачивайте ТОЧНУЮ сумму {final_price}₽
 🚚 Доставка: 10-15 минут после подтверждения оплаты"""
@@ -1011,9 +986,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 💰 Сумма к оплате: {final_price}₽
 
 🏦 Реквизиты карты:
-4100 1195 9945 9420
-ЮMoney
-Получатель: Анна М.
+{CARD_NUMBER}
+Банк: {BANK_NAME}
+Получатель: {RECEIVER_NAME}
 
 ⚠️ Внимание: оплачивайте ТОЧНУЮ сумму {final_price}₽
 🚚 Доставка: 10-15 минут после подтверждения оплаты"""
@@ -1331,7 +1306,6 @@ def main():
 
     # Админские команды
     application.add_handler(CommandHandler("sendmsg", send_to_user))
-    application.add_handler(CommandHandler("sendqr", send_qr_to_user))
     application.add_handler(CommandHandler("users", list_users))
     application.add_handler(CommandHandler("addbalance", add_balance))
 
