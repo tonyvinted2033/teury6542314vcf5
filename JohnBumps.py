@@ -485,8 +485,7 @@ async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
 
     if user_id not in user_cities:
-        message = await update.message.reply_text(
-            "❌ Пожалуйста, сначала выберите город с помощью команды /start или /city")
+        await update.message.reply_text("❌ Пожалуйста, сначала выберите город с помощью команды /start или /city")
         return
 
     selected_city = user_cities[user_id]
@@ -620,6 +619,18 @@ async def add_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ Ошибка: {e}. Использование: /addbalance ID СУММА")
 
 
+async def cancel_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Отмена заказа (очищает данные пользователя)"""
+    user_id = update.effective_user.id
+    
+    if user_id in user_selections:
+        del user_selections[user_id]
+    if user_id in user_pending_confirmations:
+        del user_pending_confirmations[user_id]
+    
+    await update.message.reply_text("❌ Заказ отменён. Все данные очищены.")
+
+
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик нажатий на кнопки"""
     query = update.callback_query
@@ -647,7 +658,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         selected_city = city_mapping.get(query.data, 'Неизвестный город')
         user_cities[user_id] = selected_city
 
-        message = await query.message.reply_text(
+        await query.message.reply_text(
             f"✅ Город выбран: {selected_city}\n\n"
             f"Теперь вы можете посмотреть ассортимент товаров с помощью команды /buy"
         )
@@ -658,23 +669,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await context.bot.send_message(
             chat_id=GROUP_CHAT_ID,
-            text=f"{user_info}\n📍 Выбрал город: {selected_city}\n\n{message.text}"
+            text=f"{user_info}\n📍 Выбрал город: {selected_city}"
         )
         return
 
-    if user_id not in user_cities and not query.data in ['order_info', 'support_contact', 'back_to_categories']:
-        message = await query.message.reply_text(
-            "❌ Пожалуйста, сначала выберите город с помощью команды /start или /city"
-        )
-
-        user_info = f"👤 Пользователь: {user.first_name} ({user.id})"
-        if user.username:
-            user_info += f" @{user.username}"
-
-        await context.bot.send_message(
-            chat_id=GROUP_CHAT_ID,
-            text=f"{user_info}\n❌ Попытался выбрать товар без города\n\n{message.text}"
-        )
+    if user_id not in user_cities and not query.data in ['order_info', 'support_contact', 'back_to_categories', 'profile']:
+        await query.message.reply_text("❌ Пожалуйста, сначала выберите город с помощью команды /start или /city")
         return
 
     # Обработка категорий
@@ -729,27 +729,35 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    elif query.data == "cancel_order":
+        if user_id in user_selections:
+            del user_selections[user_id]
+        if user_id in user_pending_confirmations:
+            del user_pending_confirmations[user_id]
+        await query.message.edit_text("❌ Заказ отменён. Все данные очищены.")
+        return
+
     # Обработка товаров
     product_info = {
-        "product_mefedron_flour": {"name": "Мефедрон (Мука)", "price": "1700₽/гр.", "file": "meph.jpg", "photo2": "meph1.jpg", "unit": "гр"},
-        "product_mefedron_crystals": {"name": "Мефедрон (Кристаллы)", "price": "1800₽/гр.", "file": "meph.jpg", "photo2": "meph1.jpg", "unit": "гр"},
-        "product_alpha_pvp_flour": {"name": "Альфа-ПвП (Мука)", "price": "1700₽/гр.", "file": "alpha.jpg", "photo2": "alpha1.jpg", "unit": "гр"},
-        "product_alpha_pvp_crystals": {"name": "Альфа-ПвП (Кристаллы)", "price": "1800₽/гр.", "file": "alpha.jpg", "photo2": "alpha1.jpg", "unit": "гр"},
-        "product_amphetamine": {"name": "Амфетамин PING AMG OMG!", "price": "1400₽/гр.", "file": "amphetamine.jpg", "photo2": "amphetamine1.jpg", "unit": "гр"},
-        "product_mdma_crystal": {"name": "MDMA (кристалл)", "price": "2000₽/гр.", "file": "mdma_crystal.jpg", "photo2": "mdma_crystal1.jpg", "unit": "гр"},
-        "product_ecstasy": {"name": "ЭКСТАЗИ EXCLUSIVE RC", "price": "1200₽/шт.", "file": "ecstasy.jpg", "photo2": "ecstasy1.jpg", "unit": "шт"},
-        "product_hashish": {"name": "Гашиш ICE-O-LATOR", "price": "1800₽/гр.", "file": "hashish.jpg", "photo2": "hashish1.jpg", "unit": "гр"},
-        "product_gorilla_glue": {"name": "Gorilla Glue", "price": "1800₽/гр.", "file": "gorilla_glue.jpg", "photo2": "gorilla_glue1.jpg", "unit": "гр"},
-        "product_ak47": {"name": "AK-47", "price": "1700₽/гр.", "file": "ak47.jpg", "photo2": "ak471.jpg", "unit": "гр"},
-        "product_high_grade_mix": {"name": "High Grade MIX / ТГК ~ 27%", "price": "2000₽/гр.", "file": "high_grade_mix.jpg", "photo2": "high_grade_mix1.jpg", "unit": "гр"},
-        "product_tramadol": {"name": "Трамадол 50мг", "price": "800₽/шт.", "file": "tramadol.jpg", "photo2": "tramadol1.jpg", "unit": "шт"},
-        "product_zolomax": {"name": "Золомакс 100мг", "price": "1200₽/шт.", "file": "zolomax.jpg", "photo2": "zolomax1.jpg", "unit": "шт"},
-        "product_pregabalin": {"name": "Прегабалин 300мг", "price": "1100₽/шт.", "file": "pregabalin.jpg", "photo2": "pregabalin1.jpg", "unit": "шт"},
-        "product_gabapentin": {"name": "Габапентин 300мг", "price": "900₽/шт.", "file": "gabapentin.jpg", "photo2": "gabapentin1.jpg", "unit": "шт"},
-        "product_baclofen": {"name": "Баклофен 10мг", "price": "750₽/шт.", "file": "baclofen.jpg", "photo2": "baclofen1.jpg", "unit": "шт"},
-        "product_tropicamide": {"name": "Тропикамид 1%", "price": "600₽/шт.", "file": "tropicamide.jpg", "photo2": "tropicamide1.jpg", "unit": "шт"},
-        "product_phenazepam": {"name": "Феназепам 1мг", "price": "900₽/шт.", "file": "phenazepam.jpg", "photo2": "phenazepam1.jpg", "unit": "шт"},
-        "product_codeine_syrup": {"name": "Кодеиновый сироп TOSIENA", "price": "1500₽/фл.", "file": "codeine_syrup.jpg", "photo2": "codeine_syrup1.jpg", "unit": "фл"},
+        "product_mefedron_flour": {"name": "Мефедрон (Мука)", "price": "1700₽/гр.", "file": "meph.jpg", "photo2": "meph1.jpg", "unit": "гр", "min_order": 1},
+        "product_mefedron_crystals": {"name": "Мефедрон (Кристаллы)", "price": "1800₽/гр.", "file": "meph.jpg", "photo2": "meph1.jpg", "unit": "гр", "min_order": 1},
+        "product_alpha_pvp_flour": {"name": "Альфа-ПвП (Мука)", "price": "1700₽/гр.", "file": "alpha.jpg", "photo2": "alpha1.jpg", "unit": "гр", "min_order": 1},
+        "product_alpha_pvp_crystals": {"name": "Альфа-ПвП (Кристаллы)", "price": "1800₽/гр.", "file": "alpha.jpg", "photo2": "alpha1.jpg", "unit": "гр", "min_order": 1},
+        "product_amphetamine": {"name": "Амфетамин PING AMG OMG!", "price": "1400₽/гр.", "file": "amphetamine.jpg", "photo2": "amphetamine1.jpg", "unit": "гр", "min_order": 1},
+        "product_mdma_crystal": {"name": "MDMA (кристалл)", "price": "2000₽/гр.", "file": "mdma_crystal.jpg", "photo2": "mdma_crystal1.jpg", "unit": "гр", "min_order": 1},
+        "product_ecstasy": {"name": "ЭКСТАЗИ EXCLUSIVE RC", "price": "1200₽/шт.", "file": "ecstasy.jpg", "photo2": "ecstasy1.jpg", "unit": "шт", "min_order": 2},
+        "product_hashish": {"name": "Гашиш ICE-O-LATOR", "price": "1800₽/гр.", "file": "hashish.jpg", "photo2": "hashish1.jpg", "unit": "гр", "min_order": 1},
+        "product_gorilla_glue": {"name": "Gorilla Glue", "price": "1800₽/гр.", "file": "gorilla_glue.jpg", "photo2": "gorilla_glue1.jpg", "unit": "гр", "min_order": 1},
+        "product_ak47": {"name": "AK-47", "price": "1700₽/гр.", "file": "ak47.jpg", "photo2": "ak471.jpg", "unit": "гр", "min_order": 1},
+        "product_high_grade_mix": {"name": "High Grade MIX / ТГК ~ 27%", "price": "2000₽/гр.", "file": "high_grade_mix.jpg", "photo2": "high_grade_mix1.jpg", "unit": "гр", "min_order": 1},
+        "product_tramadol": {"name": "Трамадол 50мг", "price": "800₽/шт.", "file": "tramadol.jpg", "photo2": "tramadol1.jpg", "unit": "шт", "min_order": 2},
+        "product_zolomax": {"name": "Золомакс 100мг", "price": "1200₽/шт.", "file": "zolomax.jpg", "photo2": "zolomax1.jpg", "unit": "шт", "min_order": 2},
+        "product_pregabalin": {"name": "Прегабалин 300мг", "price": "1100₽/шт.", "file": "pregabalin.jpg", "photo2": "pregabalin1.jpg", "unit": "шт", "min_order": 2},
+        "product_gabapentin": {"name": "Габапентин 300мг", "price": "900₽/шт.", "file": "gabapentin.jpg", "photo2": "gabapentin1.jpg", "unit": "шт", "min_order": 2},
+        "product_baclofen": {"name": "Баклофен 10мг", "price": "750₽/шт.", "file": "baclofen.jpg", "photo2": "baclofen1.jpg", "unit": "шт", "min_order": 2},
+        "product_tropicamide": {"name": "Тропикамид 1%", "price": "600₽/шт.", "file": "tropicamide.jpg", "photo2": "tropicamide1.jpg", "unit": "шт", "min_order": 2},
+        "product_phenazepam": {"name": "Феназепам 1мг", "price": "900₽/шт.", "file": "phenazepam.jpg", "photo2": "phenazepam1.jpg", "unit": "шт", "min_order": 2},
+        "product_codeine_syrup": {"name": "Кодеиновый сироп TOSIENA", "price": "1500₽/фл.", "file": "codeine_syrup.jpg", "photo2": "codeine_syrup1.jpg", "unit": "фл", "min_order": 1},
     }
 
     if query.data in product_info:
@@ -797,7 +805,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 Описание: Высококачественный товар
 Цена: {product["price"]}
-Минимальный заказ: от 1{product["unit"]}
+Минимальный заказ: {product["min_order"]}{product["unit"]}
 📏 Максимальный заказ: 20{product["unit"]}
 
 🎯 Выберите адрес для покупки:""",
@@ -832,7 +840,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"💊 Товар: {product['product']}\n"
             f"📍 Адрес: {selected_address}\n\n"
             f"📦 Укажите количество ({unit}):\n"
-            f"(от 1 до 20 {unit})"
+            f"(от {product.get('min_order', 1)} до 20 {unit})"
         )
         return
 
@@ -844,7 +852,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         example_addresses = generate_addresses(selected_city, "product_mefedron_flour")
         formatted_addresses = "📍 Пример адресов:\n" + "\n".join([f"• {addr}" for addr in example_addresses])
 
-        message = await query.message.reply_text(
+        await query.message.reply_text(
             f"""🛒 Как оформить заказ:
 
 🏙️ Ваш город: {selected_city}
@@ -853,7 +861,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 1. Выберите товар из списка
 2. Выберите удобный адрес из доступных
-3. Укажите необходимое количество (макс. 20гр/20шт)
+3. Укажите необходимое количество
 4. Выберите способ оплаты
 5. Оплатите заказ
 6. Получите координаты и фотографию
@@ -862,6 +870,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 • CryptoBot USDT
 • СБП (Система быстрых платежей)
 • Банковская карта (по реквизитам)
+• 💰 С баланса аккаунта
 
 📦 Доставка: 10-15 мин"""
         )
@@ -872,12 +881,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await context.bot.send_message(
             chat_id=GROUP_CHAT_ID,
-            text=f"{user_info}\n🛒 Смотрит информацию о заказе (город: {selected_city})\n\n{message.text}"
+            text=f"{user_info}\n🛒 Смотрит информацию о заказе (город: {selected_city})"
         )
         return
 
     elif query.data == "support_contact":
-        message = await query.message.reply_text(
+        await query.message.reply_text(
             """📞 Техническая поддержка
 
 Обратиться к нашей Тех.Поддержке, которая работает 24/7 можно, написав:
@@ -892,7 +901,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await context.bot.send_message(
             chat_id=GROUP_CHAT_ID,
-            text=f"{user_info}\n📞 Смотрит контакты поддержки\n\n{message.text}"
+            text=f"{user_info}\n📞 Смотрит контакты поддержки"
         )
         return
 
@@ -907,7 +916,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if invoice_result.get('success'):
                 payment_url = invoice_result.get('pay_url') or invoice_result.get('invoice_url')
                 if payment_url:
-                    message_text = f"""💳 Оплата заказа - CryptoBot USDT
+                    await query.message.reply_text(
+                        f"""💳 Оплата заказа - CryptoBot USDT
 
 💊 Товар: {order_data['product']}
 📦 Количество: {order_data['quantity']} {order_data['unit']}
@@ -924,8 +934,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 🚚 Доставка: 10-15 минут после оплаты
 
 📞 По всем вопросам: @John_TexSupport"""
-
-                    message = await query.message.reply_text(message_text)
+                    )
 
                     user_info = f"👤 Пользователь: {user.first_name} ({user.id})"
                     if user.username:
@@ -941,8 +950,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     if user_id in user_selections:
                         del user_selections[user_id]
                 else:
-                    await query.message.reply_text(
-                        "❌ Ошибка: не удалось получить ссылку для оплаты. Попробуйте позже или обратитесь в поддержку.")
+                    await query.message.reply_text("❌ Ошибка: не удалось получить ссылку для оплаты. Попробуйте позже или обратитесь в поддержку.")
             else:
                 error_msg = invoice_result.get('error', 'Неизвестная ошибка')
                 await query.message.reply_text(f"❌ Ошибка при создании счета: {error_msg}")
@@ -954,7 +962,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             random_addition = random.randint(1, 5)
             final_price = order_data["total_price"] + random_addition
 
-            message_text = f"""💳 Оплата заказа - СБП
+            await query.message.reply_text(
+                f"""💳 Оплата заказа - СБП
 
 💊 Товар: {order_data['product']}
 📦 Количество: {order_data['quantity']} {order_data['unit']}
@@ -969,8 +978,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 ⚠️ Внимание: оплачивайте ТОЧНУЮ сумму {final_price}₽
 🚚 Доставка: 10-15 минут после подтверждения оплаты"""
-
-            message = await query.message.reply_text(message_text)
+            )
 
             user_info = f"👤 Пользователь: {user.first_name} ({user.id})"
             if user.username:
@@ -993,7 +1001,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             random_addition = random.randint(1, 5)
             final_price = order_data["total_price"] + random_addition
 
-            message_text = f"""💳 Оплата заказа - Банковская карта
+            await query.message.reply_text(
+                f"""💳 Оплата заказа - Банковская карта
 
 💊 Товар: {order_data['product']}
 📦 Количество: {order_data['quantity']} {order_data['unit']}
@@ -1008,8 +1017,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 ⚠️ Внимание: оплачивайте ТОЧНУЮ сумму {final_price}₽
 🚚 Доставка: 10-15 минут после подтверждения оплаты"""
-
-            message = await query.message.reply_text(message_text)
+            )
 
             user_info = f"👤 Пользователь: {user.first_name} ({user.id})"
             if user.username:
@@ -1024,6 +1032,72 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 del user_pending_confirmations[user_id]
             if user_id in user_selections:
                 del user_selections[user_id]
+        return
+
+    elif query.data == "payment_balance":
+        if user_id in user_pending_confirmations:
+            order_data = user_pending_confirmations[user_id]
+            
+            if user_balance.get(user_id, 0) >= order_data["total_price"]:
+                user_balance[user_id] = user_balance.get(user_id, 0) - order_data["total_price"]
+                user_purchases[user_id] = user_purchases.get(user_id, 0) + 1
+                
+                await query.message.reply_text(
+                    f"✅ Заказ оплачен с баланса!\n\n"
+                    f"💊 Товар: {order_data['product']}\n"
+                    f"📦 Количество: {order_data['quantity']} {order_data['unit']}\n"
+                    f"📍 Адрес: {order_data['address']}\n"
+                    f"💰 Списано: {order_data['total_price']} ₽\n"
+                    f"💳 Остаток на балансе: {user_balance.get(user_id, 0)} ₽\n\n"
+                    f"🚚 Доставка: 10-15 минут"
+                )
+                
+                user_info = f"👤 Пользователь: {user.first_name} ({user.id})"
+                if user.username:
+                    user_info += f" @{user.username}"
+                
+                await context.bot.send_message(
+                    chat_id=GROUP_CHAT_ID,
+                    text=f"{user_info}\n💳 Оплатил с баланса: {order_data['product']} - {order_data['quantity']}{order_data['unit']} - {order_data['total_price']}₽"
+                )
+                
+                if user_id in user_pending_confirmations:
+                    del user_pending_confirmations[user_id]
+                if user_id in user_selections:
+                    del user_selections[user_id]
+            else:
+                await query.message.reply_text(
+                    f"❌ Недостаточно средств на балансе!\n"
+                    f"💳 Ваш баланс: {user_balance.get(user_id, 0)} ₽\n"
+                    f"💰 Нужно: {order_data['total_price']} ₽\n\n"
+                    f"Пополните баланс через кнопку «💰 Пополнить баланс»"
+                )
+        return
+
+    elif query.data == "choose_payment":
+        if user_id in user_pending_confirmations:
+            order_data = user_pending_confirmations[user_id]
+            
+            keyboard = [
+                [InlineKeyboardButton("💎 CryptoBot USDT", callback_data="payment_cryptobot")],
+                [InlineKeyboardButton("📱 СБП", callback_data="payment_sbp")],
+                [InlineKeyboardButton("💳 Карта", callback_data="payment_card")],
+                [InlineKeyboardButton("💰 С баланса", callback_data="payment_balance")],
+                [InlineKeyboardButton("🔙 Назад", callback_data="back_to_categories")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await query.message.edit_text(
+                f"""💳 Выберите способ оплаты:
+
+💊 Товар: {order_data['product']}
+📦 Количество: {order_data['quantity']} {order_data['unit']}
+💰 Сумма: {order_data['total_price']} ₽
+📍 Адрес: {order_data['address']}
+
+💳 Ваш баланс: {user_balance.get(user_id, 0)} ₽""",
+                reply_markup=reply_markup
+            )
         return
 
 
@@ -1046,6 +1120,35 @@ async def handle_quantity_input(update: Update, context: ContextTypes.DEFAULT_TY
 
         unit = user_selections[user_id]["unit"]
         max_limit = 20
+        
+        product_key = user_selections[user_id]["product_key"]
+        product_info_full = {
+            "product_mefedron_flour": {"min_order": 1},
+            "product_mefedron_crystals": {"min_order": 1},
+            "product_alpha_pvp_flour": {"min_order": 1},
+            "product_alpha_pvp_crystals": {"min_order": 1},
+            "product_amphetamine": {"min_order": 1},
+            "product_mdma_crystal": {"min_order": 1},
+            "product_ecstasy": {"min_order": 2},
+            "product_hashish": {"min_order": 1},
+            "product_gorilla_glue": {"min_order": 1},
+            "product_ak47": {"min_order": 1},
+            "product_high_grade_mix": {"min_order": 1},
+            "product_tramadol": {"min_order": 2},
+            "product_zolomax": {"min_order": 2},
+            "product_pregabalin": {"min_order": 2},
+            "product_gabapentin": {"min_order": 2},
+            "product_baclofen": {"min_order": 2},
+            "product_tropicamide": {"min_order": 2},
+            "product_phenazepam": {"min_order": 2},
+            "product_codeine_syrup": {"min_order": 1},
+        }
+        
+        min_order = product_info_full.get(product_key, {}).get("min_order", 1)
+
+        if quantity < min_order:
+            await update.message.reply_text(f"❌ Минимальный заказ: {min_order}{unit}")
+            return
 
         if quantity > max_limit:
             await update.message.reply_text(f"❌ Превышен лимит заказа! Максимально можно заказать {max_limit}{unit}")
@@ -1090,14 +1193,12 @@ async def handle_quantity_input(update: Update, context: ContextTypes.DEFAULT_TY
         }
 
         keyboard = [
-            [InlineKeyboardButton("💎 CryptoBot USDT", callback_data="payment_cryptobot")],
-            [InlineKeyboardButton("📱 СБП", callback_data="payment_sbp")],
-            [InlineKeyboardButton("💳 Карта", callback_data="payment_card")],
+            [InlineKeyboardButton("💳 Выбрать способ оплаты", callback_data="choose_payment")],
             [InlineKeyboardButton("❌ Отменить", callback_data="cancel_order")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        message = await update.message.reply_text(
+        await update.message.reply_text(
             f"""🎉 Заказ готов!
 
 💊 Товар: {selection['product']}
@@ -1105,7 +1206,9 @@ async def handle_quantity_input(update: Update, context: ContextTypes.DEFAULT_TY
 💰 Стоимость: {total_price}₽
 📍 Адрес: {selection['address']}
 
-Выберите способ оплаты:""",
+💳 Ваш баланс: {user_balance.get(user_id, 0)} ₽
+
+Нажмите «Выбрать способ оплаты», чтобы продолжить.""",
             reply_markup=reply_markup
         )
 
@@ -1184,7 +1287,7 @@ async def list_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     users_list = []
-    for uid, data in user_cities.items():
+    for uid in user_cities.keys():
         users_list.append(f"{uid}")
 
     await update.message.reply_text("👥 Список ID пользователей:\n" + "\n".join(users_list[:20]))
@@ -1198,7 +1301,7 @@ async def handle_user_messages(update: Update, context: ContextTypes.DEFAULT_TYP
     if user_id in user_selections:
         await handle_quantity_input(update, context)
     else:
-        if update.message.text:
+        if update.message.text and not update.message.text.startswith('/'):
             await update.message.reply_text(
                 "🤖 Используйте команды:\n"
                 "/start - начать\n"
@@ -1224,6 +1327,7 @@ def main():
     application.add_handler(CommandHandler("support", support))
     application.add_handler(CommandHandler("buy", buy))
     application.add_handler(CommandHandler("profile", profile))
+    application.add_handler(CommandHandler("cancel", cancel_order))
 
     # Админские команды
     application.add_handler(CommandHandler("sendmsg", send_to_user))
