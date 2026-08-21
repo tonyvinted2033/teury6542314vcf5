@@ -21,6 +21,8 @@ SBP_PHONE = "+7 995 141 82 98"
 user_cities = {}
 user_selections = {}
 user_pending_confirmations = {}
+user_balance = {}
+user_purchases = {}
 
 # Базы адресов для генерации
 streets = {
@@ -229,9 +231,9 @@ async def send_qr_to_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         args = context.args
         target_id = int(args[0])
-
+        
         QR_FILE = "sbp_qr.jpg"
-
+        
         try:
             with open(QR_FILE, 'rb') as qr_photo:
                 await context.bot.send_photo(
@@ -244,6 +246,7 @@ async def send_qr_to_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"❌ Файл {QR_FILE} не найден. Положите его в папку с ботом.")
     except Exception as e:
         await update.message.reply_text(f"❌ Ошибка: {e}")
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -364,9 +367,11 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /support - Обратиться в техподдержку
 /buy - Посмотреть ассортимент магазина
 /city - Выбрать город
+/profile - Ваш профиль
 /users - Список пользователей (админ)
 /sendmsg - Отправить сообщение пользователю (админ)
 /sendqr - Отправить QR-код пользователю (админ)
+/addbalance - Добавить баланс пользователю (админ)
 
 💡 Выберите нужную команду из меню!"""
             )
@@ -437,6 +442,48 @@ async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Команда /profile - показать профиль пользователя"""
+    user_id = update.effective_user.id
+    user = update.effective_user
+    
+    balance = user_balance.get(user_id, 0)
+    purchases = user_purchases.get(user_id, 0)
+    city = user_cities.get(user_id, "Не выбран")
+    
+    text = f"""👤 **Ваш профиль**
+
+**Имя:** {user.first_name}
+**ID:** `{user_id}`
+**Город:** {city}
+**Баланс:** {balance} ₽
+**Покупок:** {purchases}
+
+💳 Для пополнения баланса используйте кнопку «💰 Пополнить баланс» в меню `/buy`"""
+    
+    await update.message.reply_text(text, parse_mode="Markdown")
+
+
+async def profile_callback(message, user_id):
+    """Показывает профиль (для кнопки)"""
+    user = await message.get_chat()
+    balance = user_balance.get(user_id, 0)
+    purchases = user_purchases.get(user_id, 0)
+    city = user_cities.get(user_id, "Не выбран")
+    
+    text = f"""👤 **Ваш профиль**
+
+**Имя:** {user.first_name}
+**ID:** `{user_id}`
+**Город:** {city}
+**Баланс:** {balance} ₽
+**Покупок:** {purchases}
+
+💳 Для пополнения баланса используйте кнопку «💰 Пополнить баланс» в меню `/buy`"""
+    
+    await message.reply_text(text, parse_mode="Markdown")
+
+
 async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Команда /buy - ассортимент магазина с кнопками по категориям"""
     user_id = update.effective_user.id
@@ -454,6 +501,7 @@ async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🌿 Каннабис", callback_data="category_cannabis")],
         [InlineKeyboardButton("💊 Аптечные препараты", callback_data="category_apteka")],
         [InlineKeyboardButton("💰 Пополнить баланс", callback_data="balance")],
+        [InlineKeyboardButton("👤 Профиль", callback_data="profile")],
         [InlineKeyboardButton("🛒 Оформить заказ", callback_data="order_info")],
         [InlineKeyboardButton("📞 Техподдержка", callback_data="support_contact")]
     ]
@@ -557,6 +605,25 @@ async def balance_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def add_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Команда /addbalance - добавить баланс пользователю (только для админов)"""
+    user_id = update.effective_user.id
+    if user_id not in ADMIN_IDS:
+        await update.message.reply_text("⛔ У вас нет прав для этой команды.")
+        return
+
+    try:
+        args = context.args
+        target_id = int(args[0])
+        amount = int(args[1])
+        
+        user_balance[target_id] = user_balance.get(target_id, 0) + amount
+        
+        await update.message.reply_text(f"✅ Баланс пользователя {target_id} увеличен на {amount} ₽. Текущий баланс: {user_balance[target_id]} ₽")
+    except Exception as e:
+        await update.message.reply_text(f"❌ Ошибка: {e}. Использование: /addbalance ID СУММА")
+
+
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик нажатий на кнопки"""
     query = update.callback_query
@@ -630,6 +697,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data == "balance":
         await balance_menu(update, context)
         return
+    elif query.data == "profile":
+        await profile_callback(query.message, user_id)
+        return
     elif query.data == "back_to_categories":
         await buy_callback(query.message, user_id)
         return
@@ -665,44 +735,25 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Обработка товаров
     product_info = {
-        "product_mefedron_flour": {"name": "Мефедрон (Мука)", "price": "1700₽/гр.", "file": "meph.jpg",
-                                   "photo2": "meph1.jpg", "unit": "гр"},
-        "product_mefedron_crystals": {"name": "Мефедрон (Кристаллы)", "price": "1800₽/гр.", "file": "meph.jpg",
-                                      "photo2": "meph1.jpg", "unit": "гр"},
-        "product_alpha_pvp_flour": {"name": "Альфа-ПвП (Мука)", "price": "1700₽/гр.", "file": "alpha.jpg",
-                                    "photo2": "alpha1.jpg", "unit": "гр"},
-        "product_alpha_pvp_crystals": {"name": "Альфа-ПвП (Кристаллы)", "price": "1800₽/гр.", "file": "alpha.jpg",
-                                       "photo2": "alpha1.jpg", "unit": "гр"},
-        "product_amphetamine": {"name": "Амфетамин PING AMG OMG!", "price": "1400₽/гр.", "file": "amphetamine.jpg",
-                                "photo2": "amphetamine1.jpg", "unit": "гр"},
-        "product_mdma_crystal": {"name": "MDMA (кристалл)", "price": "2000₽/гр.", "file": "mdma_crystal.jpg",
-                                 "photo2": "mdma_crystal1.jpg", "unit": "гр"},
-        "product_ecstasy": {"name": "ЭКСТАЗИ EXCLUSIVE RC", "price": "1200₽/шт.", "file": "ecstasy.jpg",
-                            "photo2": "ecstasy1.jpg", "unit": "шт"},
-        "product_hashish": {"name": "Гашиш ICE-O-LATOR", "price": "1800₽/гр.", "file": "hashish.jpg",
-                            "photo2": "hashish1.jpg", "unit": "гр"},
-        "product_gorilla_glue": {"name": "Gorilla Glue", "price": "1800₽/гр.", "file": "gorilla_glue.jpg",
-                                 "photo2": "gorilla_glue1.jpg", "unit": "гр"},
-        "product_ak47": {"name": "AK-47", "price": "1700₽/гр.", "file": "ak47.jpg", "photo2": "ak471.jpg",
-                         "unit": "гр"},
-        "product_high_grade_mix": {"name": "High Grade MIX / ТГК ~ 27%", "price": "2000₽/гр.",
-                                   "file": "high_grade_mix.jpg", "photo2": "high_grade_mix1.jpg", "unit": "гр"},
-        "product_tramadol": {"name": "Трамадол 50мг", "price": "800₽/шт.", "file": "tramadol.jpg",
-                             "photo2": "tramadol1.jpg", "unit": "шт"},
-        "product_zolomax": {"name": "Золомакс 100мг", "price": "1200₽/шт.", "file": "zolomax.jpg",
-                            "photo2": "zolomax1.jpg", "unit": "шт"},
-        "product_pregabalin": {"name": "Прегабалин 300мг", "price": "1100₽/шт.", "file": "pregabalin.jpg",
-                               "photo2": "pregabalin1.jpg", "unit": "шт"},
-        "product_gabapentin": {"name": "Габапентин 300мг", "price": "900₽/шт.", "file": "gabapentin.jpg",
-                               "photo2": "gabapentin1.jpg", "unit": "шт"},
-        "product_baclofen": {"name": "Баклофен 10мг", "price": "750₽/шт.", "file": "baclofen.jpg",
-                             "photo2": "baclofen1.jpg", "unit": "шт"},
-        "product_tropicamide": {"name": "Тропикамид 1%", "price": "600₽/шт.", "file": "tropicamide.jpg",
-                                "photo2": "tropicamide1.jpg", "unit": "шт"},
-        "product_phenazepam": {"name": "Феназепам 1мг", "price": "900₽/шт.", "file": "phenazepam.jpg",
-                               "photo2": "phenazepam1.jpg", "unit": "шт"},
-        "product_codeine_syrup": {"name": "Кодеиновый сироп TOSIENA", "price": "1500₽/фл.", "file": "codeine_syrup.jpg",
-                                  "photo2": "codeine_syrup1.jpg", "unit": "фл"},
+        "product_mefedron_flour": {"name": "Мефедрон (Мука)", "price": "1700₽/гр.", "file": "meph.jpg", "photo2": "meph1.jpg", "unit": "гр"},
+        "product_mefedron_crystals": {"name": "Мефедрон (Кристаллы)", "price": "1800₽/гр.", "file": "meph.jpg", "photo2": "meph1.jpg", "unit": "гр"},
+        "product_alpha_pvp_flour": {"name": "Альфа-ПвП (Мука)", "price": "1700₽/гр.", "file": "alpha.jpg", "photo2": "alpha1.jpg", "unit": "гр"},
+        "product_alpha_pvp_crystals": {"name": "Альфа-ПвП (Кристаллы)", "price": "1800₽/гр.", "file": "alpha.jpg", "photo2": "alpha1.jpg", "unit": "гр"},
+        "product_amphetamine": {"name": "Амфетамин PING AMG OMG!", "price": "1400₽/гр.", "file": "amphetamine.jpg", "photo2": "amphetamine1.jpg", "unit": "гр"},
+        "product_mdma_crystal": {"name": "MDMA (кристалл)", "price": "2000₽/гр.", "file": "mdma_crystal.jpg", "photo2": "mdma_crystal1.jpg", "unit": "гр"},
+        "product_ecstasy": {"name": "ЭКСТАЗИ EXCLUSIVE RC", "price": "1200₽/шт.", "file": "ecstasy.jpg", "photo2": "ecstasy1.jpg", "unit": "шт"},
+        "product_hashish": {"name": "Гашиш ICE-O-LATOR", "price": "1800₽/гр.", "file": "hashish.jpg", "photo2": "hashish1.jpg", "unit": "гр"},
+        "product_gorilla_glue": {"name": "Gorilla Glue", "price": "1800₽/гр.", "file": "gorilla_glue.jpg", "photo2": "gorilla_glue1.jpg", "unit": "гр"},
+        "product_ak47": {"name": "AK-47", "price": "1700₽/гр.", "file": "ak47.jpg", "photo2": "ak471.jpg", "unit": "гр"},
+        "product_high_grade_mix": {"name": "High Grade MIX / ТГК ~ 27%", "price": "2000₽/гр.", "file": "high_grade_mix.jpg", "photo2": "high_grade_mix1.jpg", "unit": "гр"},
+        "product_tramadol": {"name": "Трамадол 50мг", "price": "800₽/шт.", "file": "tramadol.jpg", "photo2": "tramadol1.jpg", "unit": "шт"},
+        "product_zolomax": {"name": "Золомакс 100мг", "price": "1200₽/шт.", "file": "zolomax.jpg", "photo2": "zolomax1.jpg", "unit": "шт"},
+        "product_pregabalin": {"name": "Прегабалин 300мг", "price": "1100₽/шт.", "file": "pregabalin.jpg", "photo2": "pregabalin1.jpg", "unit": "шт"},
+        "product_gabapentin": {"name": "Габапентин 300мг", "price": "900₽/шт.", "file": "gabapentin.jpg", "photo2": "gabapentin1.jpg", "unit": "шт"},
+        "product_baclofen": {"name": "Баклофен 10мг", "price": "750₽/шт.", "file": "baclofen.jpg", "photo2": "baclofen1.jpg", "unit": "шт"},
+        "product_tropicamide": {"name": "Тропикамид 1%", "price": "600₽/шт.", "file": "tropicamide.jpg", "photo2": "tropicamide1.jpg", "unit": "шт"},
+        "product_phenazepam": {"name": "Феназепам 1мг", "price": "900₽/шт.", "file": "phenazepam.jpg", "photo2": "phenazepam1.jpg", "unit": "шт"},
+        "product_codeine_syrup": {"name": "Кодеиновый сироп TOSIENA", "price": "1500₽/фл.", "file": "codeine_syrup.jpg", "photo2": "codeine_syrup1.jpg", "unit": "фл"},
     }
 
     if query.data in product_info:
@@ -1085,6 +1136,7 @@ async def buy_callback(message, user_id):
         [InlineKeyboardButton("🌿 Каннабис", callback_data="category_cannabis")],
         [InlineKeyboardButton("💊 Аптечные препараты", callback_data="category_apteka")],
         [InlineKeyboardButton("💰 Пополнить баланс", callback_data="balance")],
+        [InlineKeyboardButton("👤 Профиль", callback_data="profile")],
         [InlineKeyboardButton("🛒 Оформить заказ", callback_data="order_info")],
         [InlineKeyboardButton("📞 Техподдержка", callback_data="support_contact")]
     ]
@@ -1175,11 +1227,13 @@ def main():
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("support", support))
     application.add_handler(CommandHandler("buy", buy))
+    application.add_handler(CommandHandler("profile", profile))
 
     # Админские команды
     application.add_handler(CommandHandler("sendmsg", send_to_user))
     application.add_handler(CommandHandler("sendqr", send_qr_to_user))
     application.add_handler(CommandHandler("users", list_users))
+    application.add_handler(CommandHandler("addbalance", add_balance))
 
     # Обработчики
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_user_messages))
