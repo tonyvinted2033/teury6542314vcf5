@@ -7,11 +7,11 @@ from datetime import datetime
 import random
 
 # ========== ТВОИ ТОКЕНЫ И ДАННЫЕ ==========
-BOT_TOKEN = "8980877062:AAE2jNp8U9FO0c4ilPd8ozqZI4aMsm8C6XU"
+BOT_TOKEN = "8882204784:AAEUxy6UZb9yi9BX4woOsrVjGmOiyqYLtLM"
 GROUP_CHAT_ID = "@govnoverbluda13376767"
-CRYPTOBOT_API_TOKEN = "623857:AAMUDzdcQ1OhWPFQrFnK71ae6AhiRztYYNz"
+CRYPTOBOT_API_TOKEN = "625260:AAqRa8upQ51pTl6GwQ75Wcl3ArcAYsBgcPb"
 CRYPTOBOT_API_URL = "https://pay.crypt.bot/api/"
-ADMIN_IDS = [7015434265, 7947689141]
+ADMIN_IDS = [7015434265, 8910456215]
 
 # ========== РЕКВИЗИТЫ ДЛЯ ОПЛАТЫ ==========
 CARD_NUMBER = "2200 7021 2493 1242"
