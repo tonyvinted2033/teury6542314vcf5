@@ -25,7 +25,6 @@ user_selections = {}
 user_pending_confirmations = {}
 user_balance = {}
 user_purchases = {}
-banned_users = set()
 
 # ========== БАЗЫ АДРЕСОВ ==========
 streets = {
@@ -224,47 +223,7 @@ async def forward_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE, m
         print(f"Ошибка при пересылке в группу: {e}")
 
 
-async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Команда /ban - забанить пользователя (только для админов)"""
-    user_id = update.effective_user.id
-    if user_id not in ADMIN_IDS:
-        await update.message.reply_text("⛔ У вас нет прав для этой команды.")
-        return
-
-    try:
-        args = context.args
-        target_id = int(args[0])
-        banned_users.add(target_id)
-        await update.message.reply_text(f"✅ Пользователь {target_id} забанен.")
-    except Exception as e:
-        await update.message.reply_text(f"❌ Ошибка: {e}. Использование: /ban ID")
-
-
-async def unban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Команда /unban - разбанить пользователя (только для админов)"""
-    user_id = update.effective_user.id
-    if user_id not in ADMIN_IDS:
-        await update.message.reply_text("⛔ У вас нет прав для этой команды.")
-        return
-
-    try:
-        args = context.args
-        target_id = int(args[0])
-        if target_id in banned_users:
-            banned_users.remove(target_id)
-            await update.message.reply_text(f"✅ Пользователь {target_id} разбанен.")
-        else:
-            await update.message.reply_text(f"❌ Пользователь {target_id} не находится в бане.")
-    except Exception as e:
-        await update.message.reply_text(f"❌ Ошибка: {e}. Использование: /unban ID")
-
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if user_id in banned_users:
-        await update.message.reply_text("❌ Вы забанены и не можете использовать этого бота.")
-        return
-
     try:
         with open('welcome.jpg', 'rb') as photo:
             message = await update.message.reply_photo(
@@ -319,11 +278,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def city_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Команда /city - выбор города"""
-    user_id = update.effective_user.id
-    if user_id in banned_users:
-        await update.message.reply_text("❌ Вы забанены.")
-        return
-
     user = update.effective_user
     user_info = f"👤 Пользователь: {user.first_name} ({user.id})"
     if user.username:
@@ -379,11 +333,6 @@ async def show_city_selection(message):
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Команда /help - список команд"""
-    user_id = update.effective_user.id
-    if user_id in banned_users:
-        await update.message.reply_text("❌ Вы забанены.")
-        return
-
     try:
         with open('help.jpg', 'rb') as photo:
             message = await update.message.reply_photo(
@@ -426,11 +375,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Команда /support - техподдержка"""
-    user_id = update.effective_user.id
-    if user_id in banned_users:
-        await update.message.reply_text("❌ Вы забанены.")
-        return
-
     try:
         with open('support.jpg', 'rb') as photo:
             message = await update.message.reply_photo(
@@ -472,10 +416,6 @@ async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Команда /profile - показать профиль пользователя"""
     user_id = update.effective_user.id
-    if user_id in banned_users:
-        await update.message.reply_text("❌ Вы забанены.")
-        return
-
     user = update.effective_user
     
     balance = user_balance.get(user_id, 0)
@@ -497,10 +437,6 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def profile_callback(message, user_id):
     """Показывает профиль (для кнопки)"""
-    if user_id in banned_users:
-        await message.reply_text("❌ Вы забанены.")
-        return
-
     user = await message.get_chat()
     balance = user_balance.get(user_id, 0)
     purchases = user_purchases.get(user_id, 0)
@@ -522,9 +458,6 @@ async def profile_callback(message, user_id):
 async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Команда /buy - ассортимент магазина с кнопками по категориям"""
     user_id = update.effective_user.id
-    if user_id in banned_users:
-        await update.message.reply_text("❌ Вы забанены.")
-        return
 
     if user_id not in user_cities:
         await update.message.reply_text("❌ Пожалуйста, сначала выберите город с помощью команды /start или /city")
@@ -675,9 +608,6 @@ async def add_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cancel_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Отмена заказа (очищает данные пользователя)"""
     user_id = update.effective_user.id
-    if user_id in banned_users:
-        await update.message.reply_text("❌ Вы забанены.")
-        return
     
     if user_id in user_selections:
         del user_selections[user_id]
@@ -693,10 +623,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     user_id = query.from_user.id
-    if user_id in banned_users:
-        await query.message.reply_text("❌ Вы забанены.")
-        return
-
     user = query.from_user
     selected_city = user_cities.get(user_id, "Город не выбран")
 
@@ -1185,9 +1111,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_quantity_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обрабатывает ввод количества товара"""
     user_id = update.effective_user.id
-    if user_id in banned_users:
-        await update.message.reply_text("❌ Вы забанены.")
-        return
 
     if user_id not in user_selections:
         await update.message.reply_text("❌ Сначала выберите товар и адрес через меню /buy")
@@ -1301,10 +1224,6 @@ async def handle_quantity_input(update: Update, context: ContextTypes.DEFAULT_TY
 
 async def buy_callback(message, user_id):
     """Возврат к категориям"""
-    if user_id in banned_users:
-        await message.reply_text("❌ Вы забанены.")
-        return
-
     selected_city = user_cities.get(user_id, "Город не выбран")
 
     keyboard = [
@@ -1373,13 +1292,9 @@ async def list_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_user_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обрабатывает текстовые сообщения от пользователей"""
-    user_id = update.effective_user.id
-    if user_id in banned_users:
-        await update.message.reply_text("❌ Вы забанены и не можете использовать этого бота.")
-        return
-
     await forward_to_group(update, context, "user_message")
 
+    user_id = update.effective_user.id
     if user_id in user_selections:
         await handle_quantity_input(update, context)
     else:
@@ -1415,8 +1330,6 @@ def main():
     application.add_handler(CommandHandler("sendmsg", send_to_user))
     application.add_handler(CommandHandler("users", list_users))
     application.add_handler(CommandHandler("addbalance", add_balance))
-    application.add_handler(CommandHandler("ban", ban_user))
-    application.add_handler(CommandHandler("unban", unban_user))
 
     # Обработчики
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_user_messages))
