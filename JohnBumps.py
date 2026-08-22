@@ -382,7 +382,7 @@ async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 caption="""🛠️ Техническая поддержка
 
 Обратиться к нашей Тех.Поддержке, которая работает 24/7 можно, написав:
-👉 @Johns_Support
+👉 @Johns_Sup
 
 📞 Мы всегда на связи и готовы помочь!"""
             )
@@ -710,7 +710,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data == "pay_qr":
         await query.message.edit_text(
             "📲 Для оплаты по QR-коду обратитесь в нашу техподдержку:\n\n"
-            "👉 @Johns_Support\n\n"
+            "👉 @Johns_Sup\n\n"
             "Они сгенерируют QR-код и отправят его вам в личные сообщения."
         )
         return
@@ -897,7 +897,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             """📞 Техническая поддержка
 
 Обратиться к нашей Тех.Поддержке, которая работает 24/7 можно, написав:
-👉 @Johns_Support
+👉 @Johns_Sup
 
 Мы всегда на связи и готовы помочь! 🛠️"""
         )
@@ -940,7 +940,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 ⏱️ Счет действителен 1 час
 🚚 Доставка: 10-15 минут после оплаты
 
-📞 По всем вопросам: @Johns_Support"""
+📞 По всем вопросам: @Johns_Sup"""
                     )
 
                     user_info = f"👤 Пользователь: {user.first_name} ({user.id})"
